@@ -227,7 +227,7 @@ function GestionDocumentsTable({
             // Construir data_url si no viene del API
             // El formato correcto es: data:application/pdf;base64,{base64_string}
             let dataUrl = archivo.data_url;
-            
+
             if (!dataUrl && archivo.base64) {
                 // Si no viene data_url pero sí base64, construirlo
                 const tipoMime = archivo.tipo_mime || 'application/pdf';
@@ -238,6 +238,24 @@ function GestionDocumentsTable({
             }
 
             console.log('📋 Data URL final:', dataUrl ? `${dataUrl.substring(0, 50)}...` : 'No disponible');
+
+            // Preparar Blob URL para visualización confiable en iframe
+            let blobUrl = null;
+            try {
+                if (archivo.base64) {
+                    const byteCharacters = atob(archivo.base64);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: archivo.tipo_mime || 'application/pdf' });
+                    blobUrl = window.URL.createObjectURL(blob);
+                    console.log('🔗 Blob URL generado para visualización:', blobUrl?.slice(0, 32), '...');
+                }
+            } catch (blobErr) {
+                console.warn('⚠️ No se pudo generar Blob URL, se usará data_url si está disponible:', blobErr);
+            }
 
             // Configurar archivo para visualización
             setViewingFile({
@@ -251,7 +269,8 @@ function GestionDocumentsTable({
                 tamaño_bytes: archivo.tamaño_bytes,
                 subido_por: archivo.subido_por,
                 unidad: archivo.unidad,
-                fecha_subida: archivo.fecha_subida
+                fecha_subida: archivo.fecha_subida,
+                blob_url: blobUrl
             });
 
             setFileLoading(false);
@@ -266,6 +285,11 @@ function GestionDocumentsTable({
 
     // Función para cerrar el modal
     const closeViewModal = () => {
+        try {
+            if (viewingFile?.blob_url) {
+                window.URL.revokeObjectURL(viewingFile.blob_url);
+            }
+        } catch (_) { }
         setViewModalOpen(false);
         setViewingFile(null);
         setFileLoading(false);
@@ -854,10 +878,10 @@ function GestionDocumentsTable({
                     {viewingFile && !fileLoading && !fileError && (
                         <SoftBox sx={{ height: '100%', minHeight: '60vh' }}>
                             {/* Mostrar PDF en iframe - siempre será PDF */}
-                            {viewingFile.data_url ? (
+                            {(viewingFile.blob_url || viewingFile.data_url) ? (
                                 <iframe
                                     key={`pdf-${viewingFile.adjuntoId}`}
-                                    src={viewingFile.data_url}
+                                    src={viewingFile.blob_url || viewingFile.data_url}
                                     style={{
                                         width: '100%',
                                         height: '100%',
@@ -868,7 +892,11 @@ function GestionDocumentsTable({
                                     title={`Visualizando PDF: ${viewingFile.fileName}`}
                                     onLoad={() => {
                                         console.log('✅ PDF cargado en modal:', viewingFile.fileName);
-                                        console.log('📊 Tamaño del data_url:', viewingFile.data_url?.length || 0);
+                                        if (viewingFile.data_url) {
+                                            console.log('📊 Tamaño del data_url:', viewingFile.data_url?.length || 0);
+                                        } else if (viewingFile.blob_url) {
+                                            console.log('📊 Visualizando desde Blob URL');
+                                        }
                                     }}
                                     onError={(e) => {
                                         console.error('❌ Error cargando PDF en modal:', viewingFile.fileName);
