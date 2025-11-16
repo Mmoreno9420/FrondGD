@@ -8,8 +8,9 @@
 // Configuración base de la API
 export const API_CONFIG = {
     // URL base de la API
-    baseURL: process.env.REACT_APP_API_URL || "http://localhost:8000/api",
+    //baseURL: process.env.REACT_APP_API_URL || "http://localhost:8000/api",
 
+    baseURL: process.env.REACT_APP_API_URL || " https://sesalgd-backend.loca.lt/api",
     // Timeout para las peticiones (en milisegundos)
     // Aumentado a 30 segundos para permitir peticiones que pueden tardar más tiempo
     timeout: 30000,
